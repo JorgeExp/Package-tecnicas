@@ -571,36 +571,6 @@ class mArray(object):
 			return mArray(divider/self.values, divider/self.s, units)
 
 
-T = np.array([53,33,68,43])
-T = mArray(T,2,'s')/50
-w = 2*np.pi/T
-
-print w
-
-'''			
-a = [1,2,3]
-b = [0.29, 0.32, 4.1]
-c = ['mV', 'mV', 'mV']
-
-A = Medida(10, 4.3, 'A')
-B = Medida(3, 7.8, 'mV')
-
-X = mArray(a,b,c)
-Y = mArray([1,2,3,4,3,2,1], [0.1,0.2,0.3,0.4,0.3, 0.2, 0.1], 'mV')
-
-
-print 'A: ', A
-print 'X: ', X
-print 'X/A:', X/A
-
-
-print X+X
-print X*A
-print A*X
-print Y + B
-print B + Y
-'''
-
 #--------------------------------
 #Por hacer:
 #>Implementar representación en cifras significativas
