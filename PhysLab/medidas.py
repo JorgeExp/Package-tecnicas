@@ -3,8 +3,8 @@ import numpy as np
 import math
 
 
-#La clase medida aún está en proceso, puede tener errores en las incertidumbres o en
-#algún otro resultado. Si encuentras algún bug comentalo.
+#El cálculo de incertidumbres de la clase Medida sólo funciona para casos simples,
+#en los que la misma medida no aparece dos veces en la expresión
 
 class Medida(object):
 
@@ -36,6 +36,18 @@ class Medida(object):
 	def __mul__(self,multiplier):
 		#operador *
 		
+		'''
+		Esta función se llama al usar el operador *, al escribir 
+		A*B se ejectuta el código A.__mul__(B).
+		En este caso se identifica primero el tipo de B, si es un objeto
+		de la clase Medida se multiplican y se operan las incertidumbres,
+		teniendo en cuenta si A y B no son independientes sólo para el
+		caso más sencillo, A = a*B. Si B es un número se multiplica por
+		el valor y la incertidumbre, y por último si B es un objeto de la
+		clase mArray definida más abajo se llama la operación definida en
+		mArray. Si B no es ninguno de los tipos mencionados se lanza un error.
+		'''
+		
 		if isinstance(multiplier, Medida):
 		
 		#añadir el caso en que multiplier = self^b (puede venir bien definir
@@ -53,11 +65,6 @@ class Medida(object):
 				units = self.units + '^2'
 
 			else:
-				'''
-				prueba
-				
-				'''
-				print 'mul'
 				value = self.value*multiplier.value
 				s = math.sqrt((self.s*multiplier.value)**2 +\
 				 (self.value*multiplier.s)**2)
@@ -86,10 +93,12 @@ class Medida(object):
 			 %type(multiplier))
 		
  	def __rmul__(self, multiplier):
-	 	#multiplicación por la derecha, sólo se ejecutará si se intenta
-	 	#multiplicar por un tipo no válido; es decir x * y donde x no es Medida,
-	 	#ya que la función se invoca sobre el primer objeto, x.__mul__(y)
-
+ 		'''
+	 	multiplicación por la derecha, sólo se ejecutará si se intenta
+	 	multiplicar por un tipo no válido; es decir x * y donde x no es Medida,
+	 	ya que la función se invoca sobre el primer objeto, x.__mul__(y)
+		'''
+		
 	 	if type(multiplier) == int or type(multiplier) == float:
 
 	 		value = multiplier*self.value
@@ -119,12 +128,6 @@ class Medida(object):
 			if adder.value/self.value == adder.s/self.s:
 				s = self.s*(1+ adder.value/self.value)
 			else:
-				'''
-				prueba
-				
-				'''
-				
-				print 'add'
 				s = math.sqrt(self.s**2 + adder.s**2)
 			value = self.value + adder.value
 			units = self.units
@@ -149,12 +152,6 @@ class Medida(object):
 
  	def __sub__(self, substractor):
  		#resta, operador -
- 		'''
- 		
- 		prueba
- 		
- 		'''
- 		print 'sub'
  		return self + -substractor
 
 	def __isub__(self, substractor):
@@ -162,9 +159,12 @@ class Medida(object):
 		return self -subtractor
 
 	def __div__(self, divider):
-	 	#cálculos del valor y la incertidumbre al dividir una medida por otra
-	 	#o por un número, operador / , no usar '//' en ningún caso, no está
-	 	#implementado
+		'''
+	 	cálculos del valor y la incertidumbre al dividir una medida por otra
+	 	o por un número, operador / , no usar '//' en ningún caso, no está
+	 	implementado. Si se quiere dividir un número por una Medida ver
+	 	__rdiv__
+	 	'''
 	 	if isinstance(divider, Medida):
 
 	 		if divider.value == 0:
@@ -174,11 +174,6 @@ class Medida(object):
  			if self.value/divider.value == self.s/divider.s:
  				return self.value/divider.value
  			else:
- 				'''
- 				prueba
- 				
- 				'''
- 				print 'div'
  				value = self.value/divider.value
  				s = math.sqrt((self.s/divider.value)**2 + \
  				(self.value*divider.s/divider.value**2)**2)
@@ -205,9 +200,15 @@ class Medida(object):
 			 %type(divider))
 
 	def __rdiv__(self,divider):
-
-	 	#como __rmul__ pero con división, sirve para dividir un número entre una
-	 	#medida
+		
+	 	'''
+	 	Al intentar dividir un tipo numérico a entre una medida A se intenta
+	 	usar a.__div__(A), lo cuál resulta en un error porque los tipos 
+	 	numéricos de Python no están definidos para ser divisibles por
+	 	objetos de la clase Medida que hemos definido aquí. Entonces python
+	 	en vez de lanzar un error busca en el objeto A una función __rdiv__
+	 	y si la encuentra ejecuta A.__rdiv__(a)
+	 	'''
 	 	if type(divider) == int or type(divider) == float:
 	 		try:
 		 		value = divider/self.value
@@ -340,62 +341,81 @@ class mArray(object):
 		return len(self) == len(array)
 	
 		
-	def __init__(self, values, s, units):
-		
+	def __init__(self, *args):
+	
 		self.tipos_lista = [list, np.ndarray]
 		self.tipos_numeros = [int, float]
+	
+		if len(args) == 3:
+			value = args[0]
+			s = args[1]
+			units = args[2]
 		
-		
-		#esta parte está un poco desordenada, habría que arreglarla un poco
-		if type(s) in self.tipos_lista:
-			if type(units) == list:
-				if len(values) != len(s) or len(values) != len(units):
-					raise ValueError('Las longitudes de las listas no coinciden')
-				
-				else: 
-					self.values = np.array(values).astype(float)
-					self.s = np.array(s).astype(float)
-					self.units = units
-					self.lenght = len(self.values)
-					self.medidas = [0]*self.lenght
-					self._set_medidas()
-			elif type(units) == str:
-				if len(values) != len(s):
-					raise ValueError('Las longitudes de las listas no coinciden')
-				else:
-					self.values = np.array(values).astype(float)
-					self.s = np.array(s).astype(float)
-					self.lenght = len(self.values)
-					self.units = [units]*self.lenght
-					self.medidas = [0]*self.lenght
-					self._set_medidas()	
-			else:
-				raise ValueError('Tipo %s no válido para las unidades'%type(units))
+			#esta parte está un poco desordenada, habría que arreglarla un poco
+			if type(s) in self.tipos_lista:
+				if type(units) == list:
+					if len(values) != len(s) or len(values) != len(units):
+						raise ValueError('Las longitudes de las listas no coinciden')
 					
-		elif type(s) in self.tipos_numeros:
-			if type(units) == list:
-				if len(values) != len(units):
-					raise ValueError('Las longitudes de las listas no coinciden')
-				
+					else: 
+						self.values = np.array(values).astype(float)
+						self.s = np.array(s).astype(float)
+						self.units = units
+						self.lenght = len(self.values)
+						self.medidas = [0]*self.lenght
+						self._set_medidas()
+				elif type(units) == str:
+					if len(values) != len(s):
+						raise ValueError('Las longitudes de las listas no coinciden')
+					else:
+						self.values = np.array(values).astype(float)
+						self.s = np.array(s).astype(float)
+						self.lenght = len(self.values)
+						self.units = [units]*self.lenght
+						self.medidas = [0]*self.lenght
+						self._set_medidas()	
 				else:
-					self.values = np.array(values).astype(float)
-					self.lenght = len(self.values)
-					self.s = np.array([s]*self.lenght).astype(float)
-					self.units = units
-					self.medidas = [0]*self.lenght
-					self._set_medidas()
-			elif type(units) == str:
-					self.values = np.array(values).astype(float)
-					self.lenght = len(self.values)
-					self.s = np.array([s]*self.lenght).astype(float)
-					self.units = [units]*self.lenght
-					self.medidas = [0]*self.lenght
-					self._set_medidas()
-				
+					raise ValueError('Tipo %s no válido para las unidades'\
+					%type(units))
+						
+			elif type(s) in self.tipos_numeros:
+				if type(units) == list:
+					if len(values) != len(units):
+						raise ValueError('Las longitudes de las listas no coinciden')
+					
+					else:
+						self.values = np.array(values).astype(float)
+						self.lenght = len(self.values)
+						self.s = np.array([s]*self.lenght).astype(float)
+						self.units = units
+						self.medidas = [0]*self.lenght
+						self._set_medidas()
+				elif type(units) == str:
+						self.values = np.array(values).astype(float)
+						self.lenght = len(self.values)
+						self.s = np.array([s]*self.lenght).astype(float)
+						self.units = [units]*self.lenght
+						self.medidas = [0]*self.lenght
+						self._set_medidas()
+					
+				else:
+					raise ValueError('Tipo %s no válido para las unidades'\
+					%type(units))
 			else:
-				raise ValueError('Tipo %s no válido para las unidades'%type(units))
+				raise ValueError('Tipo %s no válido para las incertidumbres'%type(s))
+		
+		elif len(args) == 1:
+			self.medidas = args[0]
+			self.lenght = len(self.medidas)
+			self.v, self.s, self.units = self._calc_valores(self.medidas)
+			
 		else:
-			raise ValueError('Tipo %s no válido para las incertidumbres'%type(s))	
+			
+			raise ValueError('Inicialización incorrecta, la forma correcta es\
+			mArray(valores, incertidumbre, unidades) donde valores ha de ser una\
+			lista y los otros dos pueden ser listas o escalares, o bien se puede\
+			inicializar con mArray(medidas) donde medidas es una lista de objetos\
+			medida')	
 	
 	def __str__(self):
 		
@@ -570,10 +590,31 @@ class mArray(object):
 				units[i] = '1/' + self.units[i]
 			return mArray(divider/self.values, divider/self.s, units)
 
-
+def log(x):
+	
+	if isinstance(x, Medida):
+		v = math.log(x.value)
+		s = abs(x.s/x.value)
+		u = ''
+		return Medida(v,s,u)
+		
+	elif isinstance(x, mArray):
+		medidas = [0]*len(x)
+		for i in xrange(len(x)):
+			medidas[i] = log(x[i])
+		return mArray(medidas)
+		
+			
+	else:
+		return np.log(medida)
+		
+def cos(medida):
+	pass
 #--------------------------------
 #Por hacer:
 #>Implementar representación en cifras significativas
 #>Crear sistema de unidades que se puedan operar entre ellas
 #>Crear funciones que actuen sobre las medidas, ej.: exponencial, coseno, seno...
 #>Añadir cálculo con covarianzas a la incertidumbre
+#>Adecentar la clase mArray, que tiene código redundante y está algo mal estructurada
+#>Escribir tests

@@ -1,3 +1,4 @@
 build/
 dist/
 PhysLab.egg-info/
+*.pyc
