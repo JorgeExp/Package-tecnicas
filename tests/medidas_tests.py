@@ -96,8 +96,6 @@ def test_add_Medida():
 	v1 = md.Medida(value1, s1, units1)	
 	v2 = md.Medida(value2, s2, units2)
 	
-	#assert_raises(ValueError, v1.__add__, v2)
-	
 	
 	v2.units = 'V'
 	
@@ -105,9 +103,7 @@ def test_add_Medida():
 	
 	assert isinstance(v3, md.Medida)
 	
-	assert_raises(ValueError, v1.__add__, 3)
 	assert_raises(ValueError, v1.__add__, 'hola')
-	assert_raises(ValueError, v2.__radd__, 5)
 	
 	#caso concreto
 	x = md.Medida(42, 0.012, 'V')
@@ -158,22 +154,6 @@ def test_pow_medida():
 	eq_(z.u, y.u)
 	
 
-'''	
-def test_orders():
-	
-	x = md.Medida(42, 0.13, 'm')
-	
-	y = md.Medida(31, 0.22, 'm')
-	
-	eq_(x == y, False)
-	eq_(x>y, True)
-	eq_(x<y, False)
-	eq_(x>=y, True)
-	eq_(x<=y, False)
-	eq_(x != y, True)
-	
-	assert_raises(ValueError, x.__eq__, 'hola')
-'''
 	
 def test_calculos():
 	
@@ -187,14 +167,11 @@ def test_calculos():
 	eq_(y1.value,(x1.value + x2.value)/(x3.value - x4.value))
 	eq_(np.round(y1.u, 2), 0.40)	
 	
-	#El siguiente fragmento requiere de cálculos con covarianzas, ya que la forma
-	#en la que Medida realiza las operaciones es que en cada caso opera dos Medidas
-	#y devuelve una nueva con su correspondiente valor e incertidumbre, pero este
-	#proceso crea correlaciones que no puede resolver (ver apartado por hacer en
-	#medidas.py)
-	
-	
 	y1 = (x1*x2)/(x2*x3-x4)
+	A = x2.value*x3.value - x4.value
+	u = ((x2.value*x1.u)/A)**2 +\
+	x1.value**2*(x4.value**2*x2.u**2 + x2.value**4*x3.u**2 + x2.value**2*x4.u**2)/A**4
+	u = np.sqrt(u)
 	eq_(y1.value, (x1.value*x2.value)/(x2.value*x3.value-x4.value))
-	eq_(np.round(y1.u, 3), 0.036)
+	eq_(np.round(y1.u,3), np.round(u,3))
 

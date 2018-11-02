@@ -2,6 +2,11 @@
 import numpy as np
 import math	
 
+
+def isnumber(x):
+	return type(x) == float or type(x) == int
+
+
 class Medida:
 	
 	def __init__(self, value, u, units='', var=None, function=None, derivadas=None):
@@ -81,7 +86,7 @@ class Medida:
 				return a*b
 			return self.operate(other, h, other.value, self.value)
 			
-		elif type(other) == int or type(other) == float:
+		elif isnumber(other):
 			#si la Medida se multiplica por un número estos son los cálculos
 			value = other*self.value
 			u = abs(other*self.u)
@@ -114,13 +119,22 @@ class Medida:
 			def h(a,b):
 				return a + b
 			return self.operate(other, h, 1., 1.)
+			
+			
+		#esta opción deberá ser eliminida en cuanto se implemente el
+		#cálculo con unidades, ya que no tiene sentido sumar un
+		#valor con unidades y otro sin ellas.
+		if isnumber(other):
+			def function(vardict):
+				return other + self.function(vardict)
+			return Medida(self.value + other, self.u, var=self.var,\
+					function=function, derivadas=self.derivadas)
 		
 		raise ValueError('Tipo no válido para sumar una Medida: %s'\
 			 %type(other))
 
 	def __radd__(self, other):
-		raise ValueError('Tipo no válido para sumar una Medida: %s'\
-			 %type(other))
+		return self.__add__(other)
 
 	def __iadd__(self, other):
  		#operador +=
@@ -133,12 +147,24 @@ class Medida:
 				return a - b
 			return self.operate(other, h,1., -1.)
 		
+		if isnumber(other):
+			def function(vardict):
+				return self.function(vardict) - other
+			return Medida(self.value - other, self.u, var=self.var,\
+					function=function, derivadas=self.derivadas)
+		
 		raise ValueError('Tipo no válido para restar una Medida: %s'\
 			 %type(other))
 
 	def __rsub__(self, other):
-		raise ValueError('Tipo no válido para restar una Medida: %s'\
-			 %type(other))
+		if isnumber(other):
+			def function(vardict):
+				return other - self.function(vardict)
+			derivadas = {}
+			for variable in self.var:
+				derivadas.update({variable:-self.derivadas[variable]})
+			return Medida(other - self.value, self.u, var=self.var,\
+					function=function, derivadas=derivadas)
 
 	def __isub__(self, other):
  		#operador +=
@@ -152,7 +178,7 @@ class Medida:
 				return a/b
 			return self.operate(other, h, 1./other.value, -self.value/other.value**2)
 		
-		elif type(other) == int or type(other) == float:
+		elif isnumber(other):
 			self.__mul__(1./other)
 		
 		else:
@@ -161,7 +187,7 @@ class Medida:
 				
 	def __rdiv__(self, other):
 		
-		if type(other) == int or type(other) == float:
+		if isnumber(other):
  			
  			try:
 		 		value = other/self.value
@@ -188,7 +214,7 @@ class Medida:
 
 	def __pow__(self, power):
 		#cálculos para elevar una medida a una potencia, operador **
-		if type(power) == int or type(power) == float:
+		if isnumber(power):
 
 			value = self.value**power
 			u = abs(power*self.value**(power-1)*self.u)
@@ -517,6 +543,5 @@ def cos(medida):
 #>Implementar representación en cifras significativas
 #>Crear sistema de unidades que se puedan operar entre ellas
 #>Crear funciones que actuen sobre las medidas, ej.: exponencial, coseno, seno...
-#>Añadir cálculo con covarianzas a la incertidumbre
 #>Adecentar la clase mArray, que tiene código redundante y está algo mal estructurada
 #>Escribir tests
