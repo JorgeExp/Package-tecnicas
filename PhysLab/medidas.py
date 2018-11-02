@@ -1,316 +1,218 @@
 #coding: utf-8
 import numpy as np
-import math
+import math	
 
-
-#El cálculo de incertidumbres de la clase Medida sólo funciona para casos simples,
-#en los que la misma medida no aparece dos veces en la expresión
-
-class Medida(object):
-
-	'''
-	La clase Medida permite crear y operar objetos con valor, unidades e incertidumbre,
-	automatizando los cálculos. Se pueden usar sobre estos objetos los siguientes
-	operadores: +, -, *, /, +=, -=, *=, /=, **, ==, !=, <, >, >=, <=
-	La representación con print tiene la forma: valor ± incertidumbre unidades
-	'''
-
-	def __init__(self, value, s, units):
-
+class Medida:
+	
+	def __init__(self, value, u, units='', var=None, function=None, derivadas=None):
+		
 		self.value = float(value)
-		self.s = float(s)
+		self.u = float(u)
 		self.units = units
-
-	#implementar __repr__
-
+		
+		if var == None:
+			self.var = {self}
+		else:
+			self.var = var
+				
+		if function == None:
+			def function(vardict):
+				return vardict[self]
+			self.function = function
+		else:
+			self.function = function
+			
+		if derivadas == None:
+			self.derivadas = {self:1}
+		else:
+			self.derivadas = derivadas
+	
+	
 	def __str__(self):
 		#representación con print
 
 		#falta que ajuste las cifras significativas
-		return "%f ± %f %s" %(self.value, self.s, self.units)
-
-
-	def __neg__(self):
-		return Medida(-self.value, self.s, self.units)
-
-	def __mul__(self,multiplier):
-		#operador *
+		return "%f ± %f %s" %(self.value, self.u, self.units)
 		
-		'''
-		Esta función se llama al usar el operador *, al escribir 
-		A*B se ejectuta el código A.__mul__(B).
-		En este caso se identifica primero el tipo de B, si es un objeto
-		de la clase Medida se multiplican y se operan las incertidumbres,
-		teniendo en cuenta si A y B no son independientes sólo para el
-		caso más sencillo, A = a*B. Si B es un número se multiplica por
-		el valor y la incertidumbre, y por último si B es un objeto de la
-		clase mArray definida más abajo se llama la operación definida en
-		mArray. Si B no es ninguno de los tipos mencionados se lanza un error.
-		'''
+	def __repr__(self):
 		
-		if isinstance(multiplier, Medida):
+		return 'Medida(%f, %f, %s,)' %(self.value, self.u, self.units) 
 		
-		#añadir el caso en que multiplier = self^b (puede venir bien definir
-		#antes la función log() sobre medidas
+	def operate(self, other, h, h_A, h_B):
+		
+		 
+		f = self.function
+		g = other.function
+		
+		def function(vardict):
+			return h(f(vardict), g(vardict))
+		
+		Df = self.derivadas
+		Dg = other.derivadas
+		
+		var = self.var | other.var
+		var_fg = self.var & other.var
+		
+				
+		value = h(self.value, other.value)
+		
+		value_dict = {}
+		derivadas = {}
+		for variable in var:
+			value_dict.update({variable: variable.value})
+			derivadas.update({variable: h_A*Df.get(variable, 0.) \
+								+ h_B*Dg.get(variable, 0.)})
+			
+		C = 0.
+		for variable in var_fg:
+			C+= Df[variable]*Dg[variable]*variable.u**2
+		
+		u = h_A**2*self.u**2 + h_B**2*other.u**2 + 2*h_A*h_B*C
+		#para corregir los errores numéricos con los cuáles u puede resultar negativo
+		u = np.sqrt(u)
 
-			#fórmulas para los valores e incertidumbres al multiplicar dos Medidas
-			try:
-				ratio_value = multiplier.value/self.value
-				ratio_s = multiplier.s/self.s
-			except ZeroDivisionError:
-				return 
-			if multiplier.value/self.value == multiplier.s/self.s:
-				value = self.value*multiplier.value
-				s = abs(2*multiplier.value*self.s)
-				units = self.units + '^2'
-
-			else:
-				value = self.value*multiplier.value
-				s = math.sqrt((self.s*multiplier.value)**2 +\
-				 (self.value*multiplier.s)**2)
-			 	if multiplier.units == '':
-			 		units = self.units
-		 		else:
-					units = self.units + '·' + multiplier.units
-
-			#u = multiplier.value**2*self.u + self.value**2*multiplier.u
-			return Medida(value, s, units)
-
-		elif type(multiplier) == int or type(multiplier) == float:
+		return Medida(value, u, '', var=var, function=function, derivadas=derivadas)
+		
+		
+		
+	def __mul__(self, other):
+		if isinstance(other, Medida):
+			def h(a,b):
+				return a*b
+			return self.operate(other, h, other.value, self.value)
+			
+		elif type(other) == int or type(other) == float:
 			#si la Medida se multiplica por un número estos son los cálculos
-			value = multiplier*self.value
-			s = abs(multiplier*self.s)
-			units = self.units
+			value = other*self.value
+			u = abs(other*self.u)
+			
+			def function(vardict):
+				 return other*self.function(vardict)
+			
+			derivadas = {}
+			for variable in self.var:
+				derivadas.update({variable:other*self.derivadas[variable]})
 
-			return Medida(value, s, units)
-		
-		elif isinstance(multiplier, mArray):
-			return multiplier*self
+			return Medida(value, u, var=self.var, function=function\
+						  ,derivadas=derivadas)
 		
 		else:
 			#para cualquier otro tipo se lanza un error
 			raise ValueError('Tipo no válido para multiplicar una Medida: %s'\
-			 %type(multiplier))
+			 %type(other))
+			
+	def __rmul__(self, other):
+		return self.__mul__(other)
 		
- 	def __rmul__(self, multiplier):
- 		'''
-	 	multiplicación por la derecha, sólo se ejecutará si se intenta
-	 	multiplicar por un tipo no válido; es decir x * y donde x no es Medida,
-	 	ya que la función se invoca sobre el primer objeto, x.__mul__(y)
-		'''
+	def __imul__(self, other):
+		return self.__mul__(other)
 		
-	 	if type(multiplier) == int or type(multiplier) == float:
-
-	 		value = multiplier*self.value
-			s = abs(multiplier*self.s)
-			units = self.units
-
-			return Medida(value, s, units)
-
-		else:
-			#si no se multiplica por un número se lanza un error
-			raise ValueError('Tipo no válido para multiplicar una Medida: %s'\
-			 %type(multiplier))
-
-	def __imul__(self, multiplier):
-	 	#operador *=
-	 	return self*multiplier
-
-
-	def __add__(self, adder):
-		#fórmulas para valores e incertidumbres al sumar dos Medidas
-		if isinstance(adder, Medida):
-
-			#comprueba que ambas medidas tengan las mismas unidades para poder sumarlas
-			if adder.units != self.units:
-				raise ValueError('Las unidades deben coincidir para sumar medidas')
-
-			if adder.value/self.value == adder.s/self.s:
-				s = self.s*(1+ adder.value/self.value)
-			else:
-				s = math.sqrt(self.s**2 + adder.s**2)
-			value = self.value + adder.value
-			units = self.units
-			#u = self.u + adder.u
-
-			return Medida(value, s, units)
 		
-		elif isinstance(adder, mArray):
-			return adder+self
+
+	def __add__(self, other):
+		if isinstance(other, Medida):
+			def h(a,b):
+				return a + b
+			return self.operate(other, h, 1., 1.)
 		
-		else:
-			raise ValueError('Tipo no válido para sumar una Medida: %s'\
-			 %type(adder))
-			 
-	def __radd__(self, adder):
 		raise ValueError('Tipo no válido para sumar una Medida: %s'\
-			 %type(adder))
+			 %type(other))
 
-	def __iadd__(self, adder):
+	def __radd__(self, other):
+		raise ValueError('Tipo no válido para sumar una Medida: %s'\
+			 %type(other))
+
+	def __iadd__(self, other):
  		#operador +=
-	 	return self + adder
+	 	return self.__add__(other)
+	 	
+	 	
+	def __sub__(self, other):
+		if isinstance(other, Medida):
+			def h(a,b):
+				return a - b
+			return self.operate(other, h,1., -1.)
+		
+		raise ValueError('Tipo no válido para restar una Medida: %s'\
+			 %type(other))
 
- 	def __sub__(self, substractor):
- 		#resta, operador -
- 		return self + -substractor
+	def __rsub__(self, other):
+		raise ValueError('Tipo no válido para restar una Medida: %s'\
+			 %type(other))
 
-	def __isub__(self, substractor):
-		#operador -=
-		return self -subtractor
+	def __isub__(self, other):
+ 		#operador +=
+	 	return self.__sub__(other)
 
-	def __div__(self, divider):
-		'''
-	 	cálculos del valor y la incertidumbre al dividir una medida por otra
-	 	o por un número, operador / , no usar '//' en ningún caso, no está
-	 	implementado. Si se quiere dividir un número por una Medida ver
-	 	__rdiv__
-	 	'''
-	 	if isinstance(divider, Medida):
-
-	 		if divider.value == 0:
-	 			raise ValueError('No se puede dividir por una medida de valor 0')
-
-
- 			if self.value/divider.value == self.s/divider.s:
- 				return self.value/divider.value
- 			else:
- 				value = self.value/divider.value
- 				s = math.sqrt((self.s/divider.value)**2 + \
- 				(self.value*divider.s/divider.value**2)**2)
- 				units = self.units + '/' + divider.units
-
- 			#u = self.u/divider.value**2 + self.value**2*divider.u/divider.value**2
-
- 			return Medida(value, s, units)
-
-		elif isinstance(divider, mArray):
-			return divider.__rdiv__(self)
-			
-			
-		elif type(divider) == int or type(divider) == float:
-
-			value = self.value/divider
-			s = self.s/divider
-			units = self.units
-
-			return Medida(value, s, units)
-
+	
+	def __div__(self, other):
+		
+		if isinstance(other, Medida):
+			def h(a,b):
+				return a/b
+			return self.operate(other, h, 1./other.value, -self.value/other.value**2)
+		
+		elif type(other) == int or type(other) == float:
+			self.__mul__(1./other)
+		
 		else:
 			raise ValueError('Tipo no válido para dividir una Medida: %s'\
-			 %type(divider))
-
-	def __rdiv__(self,divider):
+				%type(other))
+				
+	def __rdiv__(self, other):
 		
-	 	'''
-	 	Al intentar dividir un tipo numérico a entre una medida A se intenta
-	 	usar a.__div__(A), lo cuál resulta en un error porque los tipos 
-	 	numéricos de Python no están definidos para ser divisibles por
-	 	objetos de la clase Medida que hemos definido aquí. Entonces python
-	 	en vez de lanzar un error busca en el objeto A una función __rdiv__
-	 	y si la encuentra ejecuta A.__rdiv__(a)
-	 	'''
-	 	if type(divider) == int or type(divider) == float:
-	 		try:
-		 		value = divider/self.value
-		 		s = divider*self.s/self.value**2
-		 		units = '1/' + self.units
-
-		 		return Medida(value, s, units)
+		if type(other) == int or type(other) == float:
+ 			
+ 			try:
+		 		value = other/self.value
+		 		u = other*self.u/self.value**2
+		 		
+		 		def function(vardict):
+		 			return 1./self.function(vardict)
+				
+				derivadas = {}
+				for variable in self.var:
+					derivadas.update({variable: \
+									-self.derivadas[variable]/self.value**2})
+				
+		 		return Medida(value, u, var=self.var, function=function,
+		 				derivadas=derivadas)
 			except ZeroDivisionError:
 				pass
 				#implementar situación de error
-
 		else:
-			raise ValueError('Tipo no válido para la operación: %s' %type(divider))
-
-	def __idiv__(self, divider):
-		#operador /=
-		return self/divider
+			raise ValueError('Tipo no válido para la operación: %s' %type(other))
+			
+	def __idiv(self, other):
+		return self.__div__(other)
 
 	def __pow__(self, power):
 		#cálculos para elevar una medida a una potencia, operador **
 		if type(power) == int or type(power) == float:
 
 			value = self.value**power
-			s = abs(power*self.value**(power-1)*self.s)
-			units = self.units + '^' + str(power)
-
-			return Medida(value, s, units)
-
-	#los operadores de orden e igualdad sólo tienen en cuenta el valor de la Medida,
-	#no su incertidumbre ni sus unidades
-
-	def __eq__(self, other):
-		#operador ==
-		
-		if isinstance(other, Medida):
-			return self.value == other.value
+			u = abs(power*self.value**(power-1)*self.u)
 			
-		elif type(other) == float or type(other) == int:
-			return self.value == other
-		
-		else:
-			raise ValueError('Tipo no válido para comparar una medida %s'\
-			%type(other))
-			
+			def function(vardict):
+				return self.value**power*self.function(vardict)
+				
+			derivadas = {}
+			for variable in self.var:
+				derivadas.update({variable:\
+				power*self.value**(power-1.)*self.derivadas[variable]})
 
-	def __ne__(self, other):
-		#operador !=
-		return not self == other
-			
-	def __lt__(self, other):
-		#operador <
-		if isinstance(other, Medida):
-			return self.value < other.value
-			
-		elif type(other) == float or type(other) == int:
-			return self.value < other
-		
-		else:
-			raise ValueError('Tipo no válido para comparar una medida %s'\
-			%type(other))
-			
-	def __gt__(self, other):
-		#operador >
-		if isinstance(other, Medida):
-			return self.value > other.value
-	
-		elif type(other) == float or type(other) == int:
-			return self.value > other
-			
-		else:
-			raise ValueError('Tipo no válido para comparar una medida %s'\
-			%type(other))		
+			return Medida(value, u, var=self.var, function=function,\
+			derivadas=derivadas)
 
-	def __le__(self, other):
-		#operador <=
-		return self == other or self < other
-
-	def __ge__(self, other):
-		#operador >=
-		return self == other or self > other
 		
 	def equal(self, other):
 		
 		if isinstance(other, Medida):
-			return self.value == other.value and self.s == other.s\
-			and self.units == other.units
+			return self.value == other.value and self.u == other.u
+			#rewrite so that var and function are equal
 			
 		else:
 			raise ValueError('Tipo no válido para comparar una medida %s'%type(other))
-
-
-class Constant(Medida):
-	'''
-	Inicialización rápida de Medidas de incertidumbre 0
-	'''
-	def __init__(self, value, units):
-		self.value = value
-		self.s = 0
-		self.untis = units
-
-
-
 
 
 

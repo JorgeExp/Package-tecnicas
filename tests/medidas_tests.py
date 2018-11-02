@@ -25,8 +25,8 @@ def test_mul_Medida():
 	v4 = 3*v1
 	v5 = v1*3
 	
-	assert_equal([v4.value, v4.s, v4.units],[v5.value, v5.s, v5.units])
-	assert_equal([v4.value, v4.s],[3*v1.value, 3*v1.s])
+	assert_equal([v4.value, v4.u, v4.units],[v5.value, v5.u, v5.units])
+	assert_equal([v4.value, v4.u],[3*v1.value, 3*v1.u])
 	
 	assert_raises(ValueError, v4.__mul__,'hola')
 	assert_raises(ValueError, v4.__rmul__, [1,2,3])
@@ -39,13 +39,13 @@ def test_mul_Medida():
 	z = x*y
 	
 	eq_(z.value, 70.)
-	eq_(np.round(z.s,1),1.7) 
+	eq_(np.round(z.u,1),1.7) 
 	
 	w1 = x*(0.5*x)
 	w2 = 0.5*x*x
 	
 	eq_(w1.value, w2.value)
-	eq_(w1.s, w2.s)
+	eq_(w1.u, w2.u)
 	eq_(w1.units, w2.units)	
 	
 	assert w1.equal(w2)
@@ -68,7 +68,8 @@ def test_div_Medida():
 	eq_(isinstance(v3,md.Medida), True)
 	
 	y = 1/v3
-	eq_(y/y, 1.)
+	z = y/y
+	eq_(z.value, 1.)
 	
 	assert_raises(ValueError, y.__div__,'hola')
 	assert_raises(ValueError, y.__rdiv__, [1,2,3])
@@ -80,7 +81,7 @@ def test_div_Medida():
 	z = x/y
 	
 	eq_(z.value, 122./31.)
-	eq_(np.round(z.s,2),0.79)
+	eq_(np.round(z.u,2),0.79)
 
 def test_add_Medida():
 	
@@ -95,7 +96,8 @@ def test_add_Medida():
 	v1 = md.Medida(value1, s1, units1)	
 	v2 = md.Medida(value2, s2, units2)
 	
-	assert_raises(ValueError, v1.__add__, v2)
+	#assert_raises(ValueError, v1.__add__, v2)
+	
 	
 	v2.units = 'V'
 	
@@ -114,12 +116,13 @@ def test_add_Medida():
 	z = x+y
 	
 	eq_(z.value, 133.)
-	eq_(np.round(z.s,2),0.17)
+	eq_(np.round(z.u,2),0.17)
 	
 	w1 = x+x
 	w2 = 2*x
 	
-	assert w1.equal(w2)
+	eq_(w1.value, w2.value)
+	eq_(w1.u, w2.u)
 	
 def test_sub_medida():
 
@@ -130,7 +133,7 @@ def test_sub_medida():
 	z = x-y
 	
 	eq_(z.value, 11)
-	eq_(np.round(z.s,2), 0.67)
+	eq_(np.round(z.u,2), 0.67)
 
 def test_pow_medida():
 	
@@ -139,7 +142,7 @@ def test_pow_medida():
 	units1 = ''
 	
 	x = md.Medida(value1, s1, units1)
-	'''
+	
 	n = random.randint(0, 10)
 	
 	z = x
@@ -147,14 +150,15 @@ def test_pow_medida():
 	
 	for _ in xrange(n-1):
 		z *= x	
-	'''
+	
 	z = x*x
 	y = x**2
 	
 	eq_(z.value, y.value)
-	eq_(z.s, y.s)
+	eq_(z.u, y.u)
 	
-	
+
+'''	
 def test_orders():
 	
 	x = md.Medida(42, 0.13, 'm')
@@ -169,7 +173,7 @@ def test_orders():
 	eq_(x != y, True)
 	
 	assert_raises(ValueError, x.__eq__, 'hola')
-	
+'''
 	
 def test_calculos():
 	
@@ -181,7 +185,7 @@ def test_calculos():
 	y1 = (x1+x2)/(x3-x4)
 	
 	eq_(y1.value,(x1.value + x2.value)/(x3.value - x4.value))
-	eq_(np.round(y1.s, 2), 0.40)	
+	eq_(np.round(y1.u, 2), 0.40)	
 	
 	#El siguiente fragmento requiere de cálculos con covarianzas, ya que la forma
 	#en la que Medida realiza las operaciones es que en cada caso opera dos Medidas
@@ -190,26 +194,7 @@ def test_calculos():
 	#medidas.py)
 	
 	
-	#y1 = (x1*x2)/(x2*x3-x4)
-	#eq_(y1.value, (x1.value*x2.value)/(x2.value*x3.value-x4.value))
-	#eq_(np.round(y1.s, 3), 0.036)
-	
-	
-def test_constant():
-	
-	g = md.Constant(9.8, 'm/s^2')
-	
-	t = md.Medida(10, 0.012, 's')
-	
-	v = g*t
-	
-	
-	#problema al multiplicar por constante, ya que comprueba las relaciones
-	#entre valores e incertidumbres y si la incertidumbre es 0 da ZeroDivisionError
-	#esto se puede solucionar con un try/except o añadiendo las covarianzas para
-	#evitar tener que comprobar que uno de los factores es múltiplo del otro
-	
-	'''	
-	assert isinstance(v, md.Medida)
-	eq_(v.s, t.s*g.value)
-	'''
+	y1 = (x1*x2)/(x2*x3-x4)
+	eq_(y1.value, (x1.value*x2.value)/(x2.value*x3.value-x4.value))
+	eq_(np.round(y1.u, 3), 0.036)
+
